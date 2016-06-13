@@ -117,6 +117,7 @@
 				 */
 				setInitialOptions: function ( options ) {
 					var defaults = {
+						ttl: 10,
 						excludeFields: [],
 						customKeySuffix: "",
 						locationBased: false,
@@ -314,6 +315,11 @@
 					var self = this;
 					var restored = false;
 
+					// check if cached data is still valid
+					if(!self.isCacheDataValid()){
+						return;
+					}
+
 					self.targets.each( function() {
 						var target = $( this );
 						var targetFormIdAndName = getElementIdentifier( $( this ) );
@@ -420,6 +426,7 @@
 					// if fireCallback is undefined it should be true
 					fireCallback = fireCallback === undefined ? true : fireCallback;
 					this.browserStorage.set( key, value );
+					self.updateCacheLifeTime();
 					if ( fireCallback && value !== "" ) {
 						this.options.onSave.call( this );
 					}
@@ -515,6 +522,43 @@
 					if ( released ) {
 						self.options.onRelease.call( self );
 					}
+
+					self.removeTimeStamp();
+				},
+
+				updateCacheLifeTime: function(){
+					var self = this;
+					var ttl = self.options.ttl;
+					var key = self.identifier+'lifetime';
+					var date = new Date();
+					this.browserStorage.set(key, date.getTime());
+				},
+
+
+				isCacheDataValid: function(){
+					var self = this;
+					var ttl = self.options.ttl;
+					var key = self.identifier+'lifetime';
+					var date = new Date();
+					var createdTime = this.browserStorage.get(key);
+					var diffMs = date.getTime() - Number(createdTime);
+
+					var diffMins = Math.floor(diffMs / 60000);
+
+					if(diffMins < ttl){
+						return true;
+					}else{
+						self.manuallyReleaseData();
+						self.removeTimeStamp();
+						return false;
+					}
+				},
+
+
+				removeTimeStamp: function(){
+					var self = this;
+					var key = self.identifier+'lifetime';
+					this.browserStorage.remove(key);
 				}
 
 			};
